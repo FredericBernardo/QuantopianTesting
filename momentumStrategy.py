@@ -12,11 +12,11 @@ class Stats(object):
     pass
 
 def initialize(context):
-    context.topMom = 1
+    context.topMom = 10
     context.rebal_int = 3
     context.lookback = 250
     set_symbol_lookup_date('2015-01-01')
-    context.stocks = symbols('DDM', 'MVV', 'QLD', 'SSO', 'UWM', 'SAA', 'UYM', 'UGE', 'UCC', 'UYG', 'RXL', 'UXI', 'DIG', 'URE', 'ROM', 'UPW', 'BIL')
+    context.stocks = symbols('SPY', 'EFA', 'BND', 'VNQ', 'GSG', 'BIL')
  
     # Add statistics
     context.stats = Stats()
@@ -35,22 +35,25 @@ def rebalance(context, data):
     MomList = GenerateMomentumList(context, data)
 
     #List next position to buy
-    #nextPosition = []
-    #for l in MomList:
-    #    stock = l[0]
-    #        nextPosition.append(stock)
-            
-    
-    #sell all positions
-    for stock in context.portfolio.positions:
-    #    if stock not in nextPosition:
-        order_target(stock, 0)
-    
-    weight = 0.95/context.topMom
-
-    #buy
-    for stock in nextPosition:
+    nextPosition = set()
+    for l in MomList:
+        stock = l[0]
         if stock in data and data[stock].close_price > data[stock].mavg(200):
+            nextPosition.add(stock)
+            
+    #sell if not among the next positions
+    for stock in context.portfolio.positions:
+        if stock not in nextPosition:
+            order_target(stock, 0)
+        else:
+            nextPosition.discard(stock)
+    
+    if len(nextPosition) > 0:
+        weight = 0.95/(len(nextPosition)+len(context.portfolio.positions))
+
+        #buy
+        for stock in nextPosition:
+            print ('Buy ' + str(weight) + ' of ' + stock.symbol)
             order_percent(stock, weight)
         
     pass
@@ -70,9 +73,9 @@ def GenerateMomentumList(context, data):
         MomList.append([stock, pct_moment, now])
 
     MomList = sorted(MomList, key=itemgetter(1), reverse=True)
+
     # return only the top "topMom" number of securities
     MomList = MomList[0:context.topMom]
-    print (MomList[0][0].symbol)
 
     return MomList
     
